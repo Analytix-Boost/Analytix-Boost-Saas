@@ -1,5 +1,7 @@
 <?php 
-include("./layouts/session.php");
+ob_start(); // Start output buffering
+
+include("./layouts/session.php"); // include session
 
 include 'conn.php'; // Include database connection
 
@@ -39,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['supplier_name_']) && !
             // Calculate total items to add to stock
             $newQuantity = $packQuantity * $itemsPerPack;
 
-			$user_email = $_SESSION['email']; // user's email
+			$user_email = htmlspecialchars($_SESSION['email']); // user's email
 
             // Update quantity in the products table based on product name
             $updateQuery = "UPDATE products SET quantity = quantity + ? WHERE product_name = ? AND email = '$user_email'";
@@ -60,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['supplier_name_']) && !
                         });
                     });
                 </script>";
-            } else {
+                } else {
                 echo "<script>
                     document.addEventListener('DOMContentLoaded', function() {
                         Swal.fire({
@@ -74,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['supplier_name_']) && !
             }
 
             $updateStmt->close(); // Close the update statement
-        } else {
+          } else {
             // If the status is not "Received", show a success message without updating the product quantity
             echo "<script>
                 document.addEventListener('DOMContentLoaded', function() {
@@ -90,7 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['supplier_name_']) && !
                 });
             </script>";
         }
-    } else {
+      } else {
         echo "<script>
             document.addEventListener('DOMContentLoaded', function() {
                 Swal.fire({
@@ -107,9 +109,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['supplier_name_']) && !
 }
 
 
-
 // Script to insert uploaded purchase CSV file into the database
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     // Check if a file was uploaded
     if (isset($_FILES['csv_file']) && $_FILES['csv_file']['error'] == UPLOAD_ERR_OK) {
         $fileTmpPath = $_FILES['csv_file']['tmp_name'];
@@ -118,6 +119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Check if the file is a CSV
         if (pathinfo($fileName, PATHINFO_EXTENSION) !== 'csv') {
             header("Location: purchase-list.php?error=not_csv");
+			ob_end_flush(); // Flush the output buffer and send headers
             exit;
         }
 
@@ -136,6 +138,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     fclose($handle);
                     $conn->close();
                     header("Location: purchase-list.php?error=incomplete_row&row=" . ($rowCount + 2));
+					ob_end_flush(); // Flush the output buffer and send headers
                     exit;
                 }
 
@@ -165,6 +168,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     fclose($handle);
                     $conn->close();
                     header("Location: purchase-list.php?error=insert_failed&row=" . ($rowCount + 2));
+					ob_end_flush(); // Flush the output buffer and send headers
                     exit;
                 }
 
@@ -183,6 +187,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         fclose($handle);
                         $conn->close();
                         header("Location: purchase-list.php?error=update_failed&row=" . ($rowCount + 2));
+						ob_end_flush(); // Flush the output buffer and send headers
                         exit;
                     }
                     $updateStmt->close(); // Close the update statement
@@ -194,10 +199,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             fclose($handle);
             $conn->close();
             header("Location: purchase-list.php?success=$rowCount"); // Redirect on success
+			ob_end_flush(); // Flush the output buffer and send headers
             exit;  // Stop further execution after redirecting
         }
     } 
 }
+// Flush the output buffer if no redirect occurred
+ob_end_flush();
 
 
 // Get the parameters passed to check the status of the uploaded file
@@ -329,7 +337,6 @@ if (isset($_GET['success'])): ?>
 									data-feather="download" class="me-2"></i>Import Purchase</a>
 						</div>
 					</div>
-					
 				</div>
 
 				<!-- /product list -->
@@ -520,7 +527,7 @@ if (isset($_GET['success'])): ?>
 											<label>Product Name</label>
 											<select name="product_name" class="select" required>
 												<?php
-												$user_email = $_SESSION['email']; // user's email
+												$user_email = htmlspecialchars($_SESSION['email']); // user's email
 
 												// Fetch products from the products table
 												$productQuery = "SELECT product_name FROM products
@@ -589,7 +596,7 @@ if (isset($_GET['success'])): ?>
 												<label>Status</label>
 												<select class="select" name="status">
 													<option>Received</option>
-													<option>Pending</option>
+													<!-- <option>Pending</option> -->
 												</select>
 											</div>
 										</div>
@@ -663,7 +670,7 @@ if (isset($_GET['success'])): ?>
 											</div>
 										</div>
 									</div>
-									<div class="col-lg-3 col-md-6 col-sm-12">
+									<div class="col-lg-6 col-md-6 col-sm-12">
 										<div class="input-blocks">
 											<label>Purchase Date</label>
 
@@ -671,32 +678,6 @@ if (isset($_GET['success'])): ?>
 												<i data-feather="calendar" class="info-img"></i>
 												<input type="text" name="purchase_date_" class="datetimepicker" placeholder="Choose" required id="purchase_date">
 											</div>
-										</div>
-									</div>
-									<div class="col-lg-3 col-md-6 col-sm-12">
-										<div class="input-blocks">
-											<label>Product Name</label>
-											<select name="product_name_" class="select" required>
-												<?php
-												$user_email = htmlspecialchars($_SESSION['email']); // user's email
-
-												// Fetch products from the products table
-												$productQuery = "SELECT product_name FROM products
-													WHERE email = '$user_email' ORDER BY product_name ASC"; // Sorts product in alphabetical order
-
-												$result = $conn->query($productQuery);
-
-												// Check if there are products available
-												if ($result->num_rows > 0) {
-													while ($product = $result->fetch_assoc()) {
-														// Display each product name and set the id as the value
-														echo "<option value='" . $product['product_name'] . "'>" . htmlspecialchars($product['product_name']) . "</option>";
-													}
-												} else {
-													echo "<option value=''>No products available</option>";
-												}
-												?>
-											</select>
 										</div>
 									</div>
 									<div class="col-lg-3 col-md-6 col-sm-12">
@@ -725,7 +706,7 @@ if (isset($_GET['success'])): ?>
 												<label>Status</label>
 												<select class="select" name="status_">
 													<option>Received</option>
-													<option>Pending</option>
+													<!-- <option>Pending</option> -->
 												</select>
 											</div>
 										</div>
@@ -807,7 +788,7 @@ if (isset($_GET['success'])): ?>
 										<div class="input-blocks image-upload-down">
 											<label>	Upload CSV File</label>
 											<div class="image-upload download">
-												<input type="file" name="csv_file" required>
+												<input type="file" name="csv_file" accept=".csv" required>
 												<div class="image-uploads">
 													<img src="assets/img/download-img.png" alt="img">
 													<h4>Drag and drop a <span>file to upload</span></h4>
